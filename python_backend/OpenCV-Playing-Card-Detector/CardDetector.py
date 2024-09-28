@@ -13,10 +13,15 @@ import time
 import os
 import Cards
 import VideoStream
+import time
 
 
 ### ---- INITIALIZATION ---- ###
 # Define constants and initialize variables
+# Initialize last known rank and suit
+last_known_rank = None
+last_known_suit = None
+
 
 ## Camera settings
 IM_WIDTH = 1280
@@ -65,13 +70,14 @@ while cam_quit == 0:
     # Find and sort the contours of all cards in the image (query cards)
     cnts_sort, cnt_is_card = Cards.find_cards(pre_proc)
 
+    # Initialize a new "cards" list to assign the card objects.
+    # k indexes the newly made array of cards.
+    cards = []
+    k = 0
+    
     # If there are no contours, do nothing
     if len(cnts_sort) != 0:
 
-        # Initialize a new "cards" list to assign the card objects.
-        # k indexes the newly made array of cards.
-        cards = []
-        k = 0
 
         # For each contour detected:
         for i in range(len(cnts_sort)):
@@ -85,19 +91,42 @@ while cam_quit == 0:
                 cards.append(Cards.preprocess_card(cnts_sort[i],image))
 
                 # Find the best rank and suit match for the card.
-                cards[k].best_rank_match,cards[k].best_suit_match,cards[k].rank_diff,cards[k].suit_diff = Cards.match_card(cards[k],train_ranks,train_suits)
+                rank, suit, rank_diff, suit_diff = Cards.match_card(cards[k], train_ranks, train_suits)
+                cards[k].best_rank_match = rank
+                cards[k].best_suit_match = suit
+                cards[k].rank_diff = rank_diff
+                cards[k].suit_diff = suit_diff
+
+                # Update last known rank and suit if detection is valid
+                if cards[k].best_rank_match != "Unknown":
+                    last_known_rank = cards[k].best_rank_match
+                if cards[k].best_suit_match != "Unknown":
+                    last_known_suit = cards[k].best_suit_match
+
+                # Use last known rank and suit if current detection is "Unknown"
+                if cards[k].best_rank_match == "Unknown" and last_known_rank is not None:
+                    cards[k].best_rank_match = last_known_rank
+                if cards[k].best_suit_match == "Unknown" and last_known_suit is not None:
+                    cards[k].best_suit_match = last_known_suit
 
                 # Draw center point and match result on the image.
                 image = Cards.draw_results(image, cards[k])
                 k = k + 1
+
+    else:
+        # No cards detected. If we have last known rank and suit, display them.
+        if last_known_rank is not None and last_known_suit is not None:
+            x = 50  # Adjust the position as needed
+            y = 50
+            cv2.putText(image, f"{last_known_rank} of {last_known_suit}", (x, y), font, 1, (50, 200, 200), 2, cv2.LINE_AA)
 	    
-        # Draw card contours on image (have to do contours all at once or
-        # they do not show up properly for some reason)
-        if (len(cards) != 0):
-            temp_cnts = []
-            for i in range(len(cards)):
-                temp_cnts.append(cards[i].contour)
-            cv2.drawContours(image,temp_cnts, -1, (255,0,0), 2)
+        # # Draw card contours on image (have to do contours all at once or
+        # # they do not show up properly for some reason)
+        # if (len(cards) != 0):
+        #     temp_cnts = []
+        #     for i in range(len(cards)):
+        #         temp_cnts.append(cards[i].contour)
+        #     cv2.drawContours(image,temp_cnts, -1, (255,0,0), 2)
         
         
     # Draw framerate in the corner of the image. Framerate is calculated at the end of the main loop,

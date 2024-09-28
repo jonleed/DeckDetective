@@ -18,8 +18,10 @@ BKG_THRESH = 60
 CARD_THRESH = 30
 
 # Width and height of card corner, where rank and suit are
-CORNER_WIDTH = 32
-CORNER_HEIGHT = 84
+### THESE NEED TO MATCH THE SIZE OF THE TRAINING IMAGES. ###
+### REFER TO CORNER = WARP[0:CORNER_HEIGHT, 0:CORNER_WIDTH] IN Rank_Suit_Isolator.py ###
+CORNER_WIDTH = 50
+CORNER_HEIGHT = 100
 
 # Dimensions of rank train images
 RANK_WIDTH = 70
@@ -55,6 +57,9 @@ class Query_card:
         self.suit_img = [] # Thresholded, sized image of card's suit
         self.best_rank_match = "Unknown" # Best matched rank
         self.best_suit_match = "Unknown" # Best matched suit
+        self.last_rank = "Unknown" # Rank of last card detected
+        self.last_suit = "Unknown" # Suit of last card detected
+        self.last_valid_time = time.time() # Time of last valid card detection
         self.rank_diff = 0 # Difference between rank image and best matched train rank image
         self.suit_diff = 0 # Difference between suit image and best matched train suit image
 
@@ -238,8 +243,10 @@ def preprocess_card(contour, image):
 
 
     # Split in to top and bottom half (top shows rank, bottom shows suit)
-    Qrank = query_thresh[20:185, 0:128]
-    Qsuit = query_thresh[186:336, 0:128]
+    ### NEEDS TO MATCH THE SIZE OF THE TRAINING IMAGES. ###
+    ### REFER TO corner_thresh[20:200, 0:200] IN Rank_Suit_Isolator.py ###
+    Qrank = query_thresh[20:200, 0:200]
+    Qsuit = query_thresh[200:400, 0:200]
 
     # Find rank contour and bounding rectangle, isolate and find largest contour
     Qrank_cnts, hier = cv2.findContours(Qrank, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
@@ -338,6 +345,9 @@ def draw_results(image, qCard):
     cv2.putText(image,(rank_name+' of'),(x-60,y-10),font,1,(0,0,0),3,cv2.LINE_AA)
     cv2.putText(image,(rank_name+' of'),(x-60,y-10),font,1,(50,200,200),2,cv2.LINE_AA)
 
+    # Display card name and quality of suit and rank match
+    r_diff_text = f"Rank Diff: {qCard.rank_diff:.2f}"
+    s_diff_text = f"Suit Diff: {qCard.suit_diff:.2f}"
     cv2.putText(image,suit_name,(x-60,y+25),font,1,(0,0,0),3,cv2.LINE_AA)
     cv2.putText(image,suit_name,(x-60,y+25),font,1,(50,200,200),2,cv2.LINE_AA)
     
