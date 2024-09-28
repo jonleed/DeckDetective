@@ -11,6 +11,13 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  background-image: url('./assets/casino_background.jpg');
+  /*background: linear-gradient(135deg, #A50000, #7E0000); */
+  color: white; /* Adjust text color for better contrast */
+  background-size: cover; /* Make the background cover the container */
+  background-position: center; /* Center the background */
+  min-height: 100vh;
 }
 
 a {
