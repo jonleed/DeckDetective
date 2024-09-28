@@ -257,8 +257,11 @@ def match_card(qCard, train_ranks, train_suits):
         # and store the result with the least difference
         for Trank in train_ranks:
 
-                diff_img = cv2.absdiff(qCard.rank_img, Trank.img)
-                rank_diff = int(np.sum(diff_img)/255)
+                try:
+                    diff_img = cv2.absdiff(qCard.rank_img, Trank.img)
+                    rank_diff = int(np.sum(diff_img)/255)
+                except:
+                    continue
                 
                 if rank_diff < best_rank_match_diff:
                     best_rank_diff_img = diff_img
