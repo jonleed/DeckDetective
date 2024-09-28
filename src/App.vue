@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Socket from './components/Socket.vue'
 </script>
 
 <template>
@@ -31,6 +32,7 @@
       </div>
     </div>
   </div>
+  <HelloWorld msg="Vite + Vue" />
 </template>
 
 <script lang="ts">
