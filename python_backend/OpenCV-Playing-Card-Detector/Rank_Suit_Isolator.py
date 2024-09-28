@@ -104,31 +104,68 @@ for Name in ['Ace','Two','Three','Four','Five','Six','Seven','Eight',
     # Flatten the card and convert it to 200x300
     warp = Cards.flattener(image,pts,w,h)
 
-    # Grab corner of card image, zoom, and threshold
-    corner = warp[0:84, 0:32]
+    # Increase the width and height to capture more of the corner
+    corner = warp[0:100, 0:50]
+
     #corner_gray = cv2.cvtColor(corner,cv2.COLOR_BGR2GRAY)
     corner_zoom = cv2.resize(corner, (0,0), fx=4, fy=4)
-    corner_blur = cv2.GaussianBlur(corner_zoom,(5,5),0)
-    retval, corner_thresh = cv2.threshold(corner_blur, 155, 255, cv2. THRESH_BINARY_INV)
+    # corner_blur = cv2.GaussianBlur(corner_zoom,(5,5),0)
+    # retval, corner_thresh = cv2.threshold(corner_blur, 155, 255, cv2. THRESH_BINARY_INV)
+
+    # Convert to blur
+    corner_blur = cv2.GaussianBlur(corner_zoom, (5, 5), 0)
+
+    # Optional: possibly apply histogram equalization
+    # corner_blur = cv2.equalizeHist(corner_blur)
+
+    # Apply adaptive thresholding
+    corner_thresh = cv2.adaptiveThreshold(
+        corner_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
+    )
+
+    # Apply morphological opening to remove noise
+    kernel = np.ones((3, 3), np.uint8)
+    corner_thresh = cv2.morphologyEx(corner_thresh, cv2.MORPH_OPEN, kernel)
+
+    # Visualize the thresholded corner
+    cv2.imshow("Corner Threshold", corner_thresh)
+    # cv2.waitKey(0)
 
     # Isolate suit or rank
     if i <= 13: # Isolate rank
-        rank = corner_thresh[20:185, 0:128] # Grabs portion of image that shows rank
-        rank_cnts, hier = cv2.findContours(rank, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-        rank_cnts = sorted(rank_cnts, key=cv2.contourArea,reverse=True)
-        x,y,w,h = cv2.boundingRect(rank_cnts[0])
-        rank_roi = rank[y:y+h, x:x+w]
-        rank_sized = cv2.resize(rank_roi, (RANK_WIDTH, RANK_HEIGHT), 0, 0)
-        final_img = rank_sized
+        rank = corner_thresh[20:200, 0:200] # Adjust these indices if necessary
+        cv2.imshow("Rank Image", rank)
+        # cv2.waitKey(0)
+        rank_cnts, hier = cv2.findContours(rank, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        rank_cnts = sorted(rank_cnts, key=cv2.contourArea, reverse=True)
+        if len(rank_cnts) > 0:
+            x, y, w, h = cv2.boundingRect(rank_cnts[0])
+            rank_roi = rank[y:y+h, x:x+w]
+            rank_sized = cv2.resize(rank_roi, (RANK_WIDTH, RANK_HEIGHT), 0, 0)
+            final_img = rank_sized
+            # Normalize before saving
+            final_img = cv2.normalize(final_img, None, 0, 255, cv2.NORM_MINMAX)
+        else:
+            print(f"No contours found in rank image for {filename}!")
+            continue
 
     if i > 13: # Isolate suit
-        suit = corner_thresh[186:336, 0:128] # Grabs portion of image that shows suit
-        suit_cnts, hier = cv2.findContours(suit, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-        suit_cnts = sorted(suit_cnts, key=cv2.contourArea,reverse=True)
-        x,y,w,h = cv2.boundingRect(suit_cnts[0])
-        suit_roi = suit[y:y+h, x:x+w]
-        suit_sized = cv2.resize(suit_roi, (SUIT_WIDTH, SUIT_HEIGHT), 0, 0)
-        final_img = suit_sized
+        suit = corner_thresh[200:400, 0:200] # Adjust these indices if necessary
+        cv2.imshow("Suit Image", suit)
+        # cv2.waitKey(0)
+        suit_cnts, hier = cv2.findContours(suit, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        suit_cnts = sorted(suit_cnts, key=cv2.contourArea, reverse=True)
+        if len(suit_cnts) > 0:
+            x, y, w, h = cv2.boundingRect(suit_cnts[0])
+            suit_roi = suit[y:y+h, x:x+w]
+            suit_sized = cv2.resize(suit_roi, (SUIT_WIDTH, SUIT_HEIGHT), 0, 0)
+            final_img = suit_sized
+            # Normalize before saving
+            final_img = cv2.normalize(final_img, None, 0, 255, cv2.NORM_MINMAX)
+        else:
+            print(f"No contours found in suit image for {filename}!")
+            continue
+
 
     cv2.imshow("Image",final_img)
 
@@ -141,4 +178,10 @@ for Name in ['Ace','Two','Three','Four','Five','Six','Seven','Eight',
     i = i + 1
 
 cv2.destroyAllWindows()
-camera.close()
+
+# Release cap for USB cam
+if PiOrUSB == 2:
+    cap.release()
+
+if PiOrUSB == 1:
+    camera.close()

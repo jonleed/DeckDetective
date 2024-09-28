@@ -29,8 +29,11 @@ RANK_HEIGHT = 125
 SUIT_WIDTH = 70
 SUIT_HEIGHT = 100
 
-RANK_DIFF_MAX = 2000
-SUIT_DIFF_MAX = 700
+# RANK_DIFF_MAX = 2000
+# SUIT_DIFF_MAX = 700
+RANK_DIFF_MAX = 0.15  
+SUIT_DIFF_MAX = 0.15
+
 
 CARD_MAX_AREA = 120000
 CARD_MIN_AREA = 25000
@@ -83,6 +86,10 @@ def load_ranks(filepath):
         train_ranks[i].name = Rank
         filename = Rank + '.jpg'
         train_ranks[i].img = cv2.imread(filepath+filename, cv2.IMREAD_GRAYSCALE)
+
+        # Normalize the training rank image
+        train_ranks[i].img = cv2.normalize(train_ranks[i].img, None, 0, 255, cv2.NORM_MINMAX)
+
         i = i + 1
 
     return train_ranks
@@ -99,6 +106,10 @@ def load_suits(filepath):
         train_suits[i].name = Suit
         filename = Suit + '.jpg'
         train_suits[i].img = cv2.imread(filepath+filename, cv2.IMREAD_GRAYSCALE)
+
+        # Normalize the training suit image
+        train_suits[i].img = cv2.normalize(train_suits[i].img, None, 0, 255, cv2.NORM_MINMAX)
+
         i = i + 1
 
     return train_suits
@@ -205,8 +216,27 @@ def preprocess_card(contour, image):
     thresh_level = white_level - CARD_THRESH
     if (thresh_level <= 0):
         thresh_level = 1
-    retval, query_thresh = cv2.threshold(Qcorner_zoom, thresh_level, 255, cv2. THRESH_BINARY_INV)
-    
+    # retval, query_thresh = cv2.threshold(Qcorner_zoom, thresh_level, 255, cv2. THRESH_BINARY_INV)
+    # Convert to blur
+    Qcorner_blur = cv2.GaussianBlur(Qcorner_zoom, (5, 5), 0)
+
+    # Apply adaptive thresholding
+    query_thresh = cv2.adaptiveThreshold(
+        Qcorner_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
+    )
+    # Define a kernel size
+    kernel = np.ones((3, 3), np.uint8)
+
+    # Apply morphological opening to remove noise
+    query_thresh = cv2.morphologyEx(query_thresh, cv2.MORPH_OPEN, kernel)
+
+    # # Apply Canny Edge Detection
+    # edges = cv2.Canny(query_thresh, 50, 150)
+    # # Use edges instead of query_thresh
+    # Qrank = edges[20:185, 0:128]
+    # Qsuit = edges[186:336, 0:128]
+
+
     # Split in to top and bottom half (top shows rank, bottom shows suit)
     Qrank = query_thresh[20:185, 0:128]
     Qsuit = query_thresh[186:336, 0:128]
@@ -223,6 +253,9 @@ def preprocess_card(contour, image):
         Qrank_sized = cv2.resize(Qrank_roi, (RANK_WIDTH,RANK_HEIGHT), 0, 0)
         qCard.rank_img = Qrank_sized
 
+        # Normalize rank image
+        qCard.rank_img = cv2.normalize(qCard.rank_img, None, 0, 255, cv2.NORM_MINMAX)
+
     # Find suit contour and bounding rectangle, isolate and find largest contour
     Qsuit_cnts, hier = cv2.findContours(Qsuit, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
     Qsuit_cnts = sorted(Qsuit_cnts, key=cv2.contourArea,reverse=True)
@@ -235,6 +268,9 @@ def preprocess_card(contour, image):
         Qsuit_sized = cv2.resize(Qsuit_roi, (SUIT_WIDTH, SUIT_HEIGHT), 0, 0)
         qCard.suit_img = Qsuit_sized
 
+        # Normalize suit image
+        qCard.suit_img = cv2.normalize(qCard.suit_img, None, 0, 255, cv2.NORM_MINMAX)
+
     return qCard
 
 def match_card(qCard, train_ranks, train_suits):
@@ -242,8 +278,8 @@ def match_card(qCard, train_ranks, train_suits):
     the query card rank and suit images with the train rank and suit images.
     The best match is the rank or suit image that has the least difference."""
 
-    best_rank_match_diff = 10000
-    best_suit_match_diff = 10000
+    best_rank_match_diff = float('inf')
+    best_suit_match_diff = float('inf')
     best_rank_match_name = "Unknown"
     best_suit_match_name = "Unknown"
     i = 0
@@ -255,26 +291,25 @@ def match_card(qCard, train_ranks, train_suits):
         
         # Difference the query card rank image from each of the train rank images,
         # and store the result with the least difference
+        # For rank matching
         for Trank in train_ranks:
+            res = cv2.matchTemplate(qCard.rank_img, Trank.img, cv2.TM_CCOEFF_NORMED)
+            _, max_val, _, _ = cv2.minMaxLoc(res)
+            rank_diff = 1 - max_val  # Since max_val ranges from -1 to 1
 
-                diff_img = cv2.absdiff(qCard.rank_img, Trank.img)
-                rank_diff = int(np.sum(diff_img)/255)
-                
-                if rank_diff < best_rank_match_diff:
-                    best_rank_diff_img = diff_img
-                    best_rank_match_diff = rank_diff
-                    best_rank_name = Trank.name
+            if rank_diff < best_rank_match_diff:
+                best_rank_match_diff = rank_diff
+                best_rank_name = Trank.name
 
-        # Same process with suit images
+        # For suit matching
         for Tsuit in train_suits:
-                
-                diff_img = cv2.absdiff(qCard.suit_img, Tsuit.img)
-                suit_diff = int(np.sum(diff_img)/255)
-                
-                if suit_diff < best_suit_match_diff:
-                    best_suit_diff_img = diff_img
-                    best_suit_match_diff = suit_diff
-                    best_suit_name = Tsuit.name
+            res = cv2.matchTemplate(qCard.suit_img, Tsuit.img, cv2.TM_CCOEFF_NORMED)
+            _, max_val, _, _ = cv2.minMaxLoc(res)
+            suit_diff = 1 - max_val
+
+            if suit_diff < best_suit_match_diff:
+                best_suit_match_diff = suit_diff
+                best_suit_name = Tsuit.name
 
     # Combine best rank match and best suit match to get query card's identity.
     # If the best matches have too high of a difference value, card identity
