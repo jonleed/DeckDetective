@@ -46,134 +46,185 @@ for Name in ['Ace','Two','Three','Four','Five','Six','Seven','Eight',
              'Clubs','Hearts']:
 
     filename = Name + '.jpg'
+    capture_successful = False  # Flag to indicate successful capture
 
-    print('Press "p" to take a picture of ' + filename)
-    
-    
+    while not capture_successful:
+        print('Press "p" to take a picture of ' + filename)
 
-    if PiOrUSB == 1: # PiCamera
-        rawCapture.truncate(0)
-        # Press 'p' to take a picture
-        for frame in camera.capture_continuous(rawCapture, format="bgr",use_video_port=True):
-
-            image = frame.array
-            cv2.imshow("Card",image)
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord("p"):
-                break
-
+        if PiOrUSB == 1: # PiCamera
             rawCapture.truncate(0)
+            # Press 'p' to take a picture
+            for frame in camera.capture_continuous(rawCapture, format="bgr",use_video_port=True):
 
-    if PiOrUSB == 2: # USB camera
-        # Press 'p' to take a picture
-        while(True):
+                image = frame.array
+                cv2.imshow("Card",image)
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord("p"):
+                    break
 
-            ret, frame = cap.read()
-            cv2.imshow("Card",frame)
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord("p"):
-                image = frame
-                break
+                rawCapture.truncate(0)
 
-    # Pre-process image
-    gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray,(5,5),0)
-    retval, thresh = cv2.threshold(blur,100,255,cv2.THRESH_BINARY)
+        if PiOrUSB == 2: # USB camera
+            # Press 'p' to take a picture
+            while(True):
 
-    # Find contours and sort them by size
-    cnts,hier = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-    cnts = sorted(cnts, key=cv2.contourArea,reverse=True)
+                ret, frame = cap.read()
+                cv2.imshow("Card",frame)
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord("p"):
+                    image = frame
+                    break
 
-    # Assume largest contour is the card. If there are no contours, print an error
-    flag = 0
-    image2 = image.copy()
+        # Pre-process image
+        gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+        blur = cv2.GaussianBlur(gray,(5,5),0)
+        retval, thresh = cv2.threshold(blur,100,255,cv2.THRESH_BINARY)
 
-    if len(cnts) == 0:
-        print('No contours found!')
-        quit()
+        # Find contours and sort them by size
+        cnts,hier = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+        cnts = sorted(cnts, key=cv2.contourArea,reverse=True)
 
-    card = cnts[0]
+        # Assume largest contour is the card. If there are no contours, print an error
+        flag = 0
+        image2 = image.copy()
 
-    # Approximate the corner points of the card
-    peri = cv2.arcLength(card,True)
-    approx = cv2.approxPolyDP(card,0.01*peri,True)
-    pts = np.float32(approx)
+        if len(cnts) == 0:
+            print('No contours found!')
+            print('Press "r" to retry, or "q" to quit.')
+            key = cv2.waitKey(0) & 0xFF
+            if key == ord('r'):
+                continue  # Retry capturing the image
+            elif key == ord('q'):
+                cv2.destroyAllWindows()
+                if PiOrUSB == 2:
+                    cap.release()
+                if PiOrUSB == 1:
+                    camera.close()
+                exit()
+            else:
+                continue
 
-    x,y,w,h = cv2.boundingRect(card)
+        card = cnts[0]
 
-    # Flatten the card and convert it to 200x300
-    warp = Cards.flattener(image,pts,w,h)
+        # Approximate the corner points of the card
+        peri = cv2.arcLength(card,True)
+        approx = cv2.approxPolyDP(card,0.01*peri,True)
+        pts = np.float32(approx)
 
-    # Increase the width and height to capture more of the corner
-    corner = warp[0:100, 0:50]
+        x,y,w,h = cv2.boundingRect(card)
 
-    #corner_gray = cv2.cvtColor(corner,cv2.COLOR_BGR2GRAY)
-    corner_zoom = cv2.resize(corner, (0,0), fx=4, fy=4)
-    # corner_blur = cv2.GaussianBlur(corner_zoom,(5,5),0)
-    # retval, corner_thresh = cv2.threshold(corner_blur, 155, 255, cv2. THRESH_BINARY_INV)
+        # Flatten the card and convert it to 200x300
+        warp = Cards.flattener(image,pts,w,h)
 
-    # Convert to blur
-    corner_blur = cv2.GaussianBlur(corner_zoom, (5, 5), 0)
+        # Increase the width and height to capture more of the corner
+        corner = warp[0:100, 0:50]
 
-    # Optional: possibly apply histogram equalization
-    # corner_blur = cv2.equalizeHist(corner_blur)
+        #corner_gray = cv2.cvtColor(corner,cv2.COLOR_BGR2GRAY)
+        corner_zoom = cv2.resize(corner, (0,0), fx=4, fy=4)
+        # corner_blur = cv2.GaussianBlur(corner_zoom,(5,5),0)
+        # retval, corner_thresh = cv2.threshold(corner_blur, 155, 255, cv2. THRESH_BINARY_INV)
 
-    # Apply adaptive thresholding
-    corner_thresh = cv2.adaptiveThreshold(
-        corner_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
-    )
+        # Convert to blur
+        corner_blur = cv2.GaussianBlur(corner_zoom, (5, 5), 0)
 
-    # Apply morphological opening to remove noise
-    kernel = np.ones((3, 3), np.uint8)
-    corner_thresh = cv2.morphologyEx(corner_thresh, cv2.MORPH_OPEN, kernel)
+        # Optional: possibly apply histogram equalization
+        # corner_blur = cv2.equalizeHist(corner_blur)
 
-    # Visualize the thresholded corner
-    cv2.imshow("Corner Threshold", corner_thresh)
-    # cv2.waitKey(0)
+        # Apply adaptive thresholding
+        corner_thresh = cv2.adaptiveThreshold(
+            corner_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
+        )
 
-    # Isolate suit or rank
-    if i <= 13: # Isolate rank
-        rank = corner_thresh[20:200, 0:200] # Adjust these indices if necessary
-        cv2.imshow("Rank Image", rank)
+        # Apply morphological opening to remove noise
+        kernel = np.ones((3, 3), np.uint8)
+        corner_thresh = cv2.morphologyEx(corner_thresh, cv2.MORPH_OPEN, kernel)
+
+        # Visualize the thresholded corner
+        cv2.imshow("Corner Threshold", corner_thresh)
         # cv2.waitKey(0)
-        rank_cnts, hier = cv2.findContours(rank, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        rank_cnts = sorted(rank_cnts, key=cv2.contourArea, reverse=True)
-        if len(rank_cnts) > 0:
-            x, y, w, h = cv2.boundingRect(rank_cnts[0])
-            rank_roi = rank[y:y+h, x:x+w]
-            rank_sized = cv2.resize(rank_roi, (RANK_WIDTH, RANK_HEIGHT), 0, 0)
-            final_img = rank_sized
-            # Normalize before saving
-            final_img = cv2.normalize(final_img, None, 0, 255, cv2.NORM_MINMAX)
-        else:
-            print(f"No contours found in rank image for {filename}!")
+
+        # Isolate suit or rank
+        if i <= 13: # Isolate rank
+            rank = corner_thresh[20:200, 0:200] # Adjust these indices if necessary
+            cv2.imshow("Rank Image", rank)
+            # cv2.waitKey(0)
+            rank_cnts, hier = cv2.findContours(rank, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            rank_cnts = sorted(rank_cnts, key=cv2.contourArea, reverse=True)
+            if len(rank_cnts) > 0:
+                x, y, w, h = cv2.boundingRect(rank_cnts[0])
+                rank_roi = rank[y:y+h, x:x+w]
+                rank_sized = cv2.resize(rank_roi, (RANK_WIDTH, RANK_HEIGHT), 0, 0)
+                final_img = rank_sized
+                # Normalize before saving
+                final_img = cv2.normalize(final_img, None, 0, 255, cv2.NORM_MINMAX)
+            else:
+                print(f"No contours found in rank image for {filename}!")
+                print('Press "r" to retry, or "q" to quit.')
+                key = cv2.waitKey(0) & 0xFF
+                if key == ord('r'):
+                    continue  # Retry capturing the image
+                elif key == ord('q'):
+                    cv2.destroyAllWindows()
+                    if PiOrUSB == 2:
+                        cap.release()
+                    if PiOrUSB == 1:
+                        camera.close()
+                    exit()
+                else:
+                    continue
+
+        if i > 13: # Isolate suit
+            suit = corner_thresh[200:400, 0:200] # Adjust these indices if necessary
+            cv2.imshow("Suit Image", suit)
+            # cv2.waitKey(0)
+            suit_cnts, hier = cv2.findContours(suit, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            suit_cnts = sorted(suit_cnts, key=cv2.contourArea, reverse=True)
+            if len(suit_cnts) > 0:
+                x, y, w, h = cv2.boundingRect(suit_cnts[0])
+                suit_roi = suit[y:y+h, x:x+w]
+                suit_sized = cv2.resize(suit_roi, (SUIT_WIDTH, SUIT_HEIGHT), 0, 0)
+                final_img = suit_sized
+                # Normalize before saving
+                final_img = cv2.normalize(final_img, None, 0, 255, cv2.NORM_MINMAX)
+            else:
+                print(f"No contours found in rank image for {filename}!")
+                print('Press "r" to retry, or "q" to quit.')
+                key = cv2.waitKey(0) & 0xFF
+                if key == ord('r'):
+                    continue  # Retry capturing the image
+                elif key == ord('q'):
+                    cv2.destroyAllWindows()
+                    if PiOrUSB == 2:
+                        cap.release()
+                    if PiOrUSB == 1:
+                        camera.close()
+                    exit()
+                else:
+                    continue
+
+
+        cv2.imshow("Final Image",final_img)
+
+        # Save image, retry or quit
+        print('Press "c" to continue and save the image, "r" to retry, or "q" to quit.')
+        key = cv2.waitKey(0) & 0xFF
+        if key == ord('c'):
+            # Save image
+            cv2.imwrite(img_path + filename, final_img)
+            capture_successful = True  # Exit the while loop
+        elif key == ord('r'):
+            # Retry: Go back to the start of the while loop
             continue
-
-    if i > 13: # Isolate suit
-        suit = corner_thresh[200:400, 0:200] # Adjust these indices if necessary
-        cv2.imshow("Suit Image", suit)
-        # cv2.waitKey(0)
-        suit_cnts, hier = cv2.findContours(suit, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        suit_cnts = sorted(suit_cnts, key=cv2.contourArea, reverse=True)
-        if len(suit_cnts) > 0:
-            x, y, w, h = cv2.boundingRect(suit_cnts[0])
-            suit_roi = suit[y:y+h, x:x+w]
-            suit_sized = cv2.resize(suit_roi, (SUIT_WIDTH, SUIT_HEIGHT), 0, 0)
-            final_img = suit_sized
-            # Normalize before saving
-            final_img = cv2.normalize(final_img, None, 0, 255, cv2.NORM_MINMAX)
+        elif key == ord('q'):
+            cv2.destroyAllWindows()
+            if PiOrUSB == 2:
+                cap.release()
+            if PiOrUSB == 1:
+                camera.close()
+            exit()
         else:
-            print(f"No contours found in suit image for {filename}!")
+            # Any other key, default to retry
             continue
-
-
-    cv2.imshow("Image",final_img)
-
-    # Save image
-    print('Press "c" to continue.')
-    key = cv2.waitKey(0) & 0xFF
-    if key == ord('c'):
-        cv2.imwrite(img_path+filename,final_img)
 
     i = i + 1
 
