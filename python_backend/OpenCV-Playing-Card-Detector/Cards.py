@@ -48,20 +48,20 @@ class Query_card:
     """Structure to store information about query cards in the camera image."""
 
     def __init__(self):
-        self.contour = [] # Contour of card
-        self.width, self.height = 0, 0 # Width and height of card
-        self.corner_pts = [] # Corner points of card
-        self.center = [] # Center point of card
-        self.warp = [] # 200x300, flattened, grayed, blurred image
-        self.rank_img = [] # Thresholded, sized image of card's rank
-        self.suit_img = [] # Thresholded, sized image of card's suit
-        self.best_rank_match = "Unknown" # Best matched rank
-        self.best_suit_match = "Unknown" # Best matched suit
-        self.last_rank = "Unknown" # Rank of last card detected
-        self.last_suit = "Unknown" # Suit of last card detected
-        self.last_valid_time = time.time() # Time of last valid card detection
-        self.rank_diff = 0 # Difference between rank image and best matched train rank image
-        self.suit_diff = 0 # Difference between suit image and best matched train suit image
+        self.id = None  # Unique identifier for the card
+        self.contour = []  # Contour of card
+        self.width, self.height = 0, 0  # Width and height of card
+        self.corner_pts = []  # Corner points of card
+        self.center = []  # Center point of card
+        self.warp = []  # 200x300, flattened, grayed, blurred image
+        self.rank_img = []  # Thresholded, sized image of card's rank
+        self.suit_img = []  # Thresholded, sized image of card's suit
+        self.best_rank_match = "Unknown"  # Best matched rank
+        self.best_suit_match = "Unknown"  # Best matched suit
+        self.last_rank = None  # Last known rank
+        self.last_suit = None  # Last known suit
+        self.rank_diff = 0  # Difference between rank image and best matched train rank image
+        self.suit_diff = 0  # Difference between suit image and best matched train suit image
 
 class Train_ranks:
     """Structure to store information about train rank images."""
@@ -336,7 +336,7 @@ def draw_results(image, qCard):
 
     x = qCard.center[0]
     y = qCard.center[1]
-    cv2.circle(image,(x,y),5,(255,0,0),-1)
+    cv2.circle(image, (x,y), 5, (255,0,0), -1)
 
     rank_name = qCard.best_rank_match
     suit_name = qCard.best_suit_match
@@ -346,11 +346,23 @@ def draw_results(image, qCard):
     cv2.putText(image,(rank_name+' of'),(x-60,y-10),font,1,(50,200,200),2,cv2.LINE_AA)
 
     # Display card name and quality of suit and rank match
-    r_diff_text = f"Rank Diff: {qCard.rank_diff:.2f}"
-    s_diff_text = f"Suit Diff: {qCard.suit_diff:.2f}"
     cv2.putText(image,suit_name,(x-60,y+25),font,1,(0,0,0),3,cv2.LINE_AA)
     cv2.putText(image,suit_name,(x-60,y+25),font,1,(50,200,200),2,cv2.LINE_AA)
+
+    # Display the card ID for debugging
+    cv2.putText(image, f"ID: {qCard.id}", (x - 60, y + 60), font, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
     
+    ### FOR WHEN RANKS WORK ###
+    # Only draw if rank and suit are not "Unknown"
+    # if rank_name != "Unknown" and suit_name != "Unknown":
+    #     # Draw card name twice, so letters have black outline
+    #     cv2.putText(image, (rank_name + ' of'), (x - 60, y - 10), font, 1, (0, 0, 0), 3, cv2.LINE_AA)
+    #     cv2.putText(image, (rank_name + ' of'), (x - 60, y - 10), font, 1, (50, 200, 200), 2, cv2.LINE_AA)
+
+    #     cv2.putText(image, suit_name, (x - 60, y + 25), font, 1, (0, 0, 0), 3, cv2.LINE_AA)
+    #     cv2.putText(image, suit_name, (x - 60, y + 25), font, 1, (50, 200, 200), 2, cv2.LINE_AA)
+
+
     # Can draw difference value for troubleshooting purposes
     # (commented out during normal operation)
     #r_diff = str(qCard.rank_diff)

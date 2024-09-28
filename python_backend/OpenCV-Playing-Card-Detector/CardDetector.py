@@ -14,6 +14,7 @@ import os
 import Cards
 import VideoStream
 import time
+import math
 
 
 ### ---- INITIALIZATION ---- ###
@@ -22,6 +23,9 @@ import time
 last_known_rank = None
 last_known_suit = None
 
+# Initialize a list to store cards from the previous frame
+previous_cards = []
+next_card_id = 1  # Counter to assign unique IDs to cards
 
 ## Camera settings
 IM_WIDTH = 1280
@@ -49,6 +53,42 @@ train_ranks = Cards.load_ranks( path + '/Card_Imgs/')
 train_suits = Cards.load_suits( path + '/Card_Imgs/')
 
 
+### ---- FUNCTIONS ---- ###
+def match_cards(current_cards, previous_cards):
+    """
+    Match the current detected cards with the previous frame's cards based on proximity.
+    Assigns IDs to new cards and updates existing ones.
+    """
+    global next_card_id
+
+    for curr_card in current_cards:
+        # Default values
+        min_distance = float('inf')
+        matched_card = None
+
+        # Find the closest previous card to the current card
+        for prev_card in previous_cards:
+            dist = math.hypot(curr_card.center[0] - prev_card.center[0],
+                              curr_card.center[1] - prev_card.center[1])
+            if dist < min_distance:
+                min_distance = dist
+                matched_card = prev_card
+
+        # Define a threshold distance to consider cards as the same
+        # Adjust this threshold based on expected movement between frames
+        distance_threshold = 50  # You may need to adjust this value
+
+        if matched_card is not None and min_distance < distance_threshold:
+            # Assign the same ID and last known rank/suit
+            curr_card.id = matched_card.id
+            curr_card.last_rank = matched_card.last_rank
+            curr_card.last_suit = matched_card.last_suit
+        else:
+            # Assign a new ID to the card
+            curr_card.id = next_card_id
+            next_card_id += 1
+
+
 ### ---- MAIN LOOP ---- ###
 # The main loop repeatedly grabs frames from the video stream
 # and processes them to find and identify playing cards.
@@ -72,12 +112,11 @@ while cam_quit == 0:
 
     # Initialize a new "cards" list to assign the card objects.
     # k indexes the newly made array of cards.
-    cards = []
+    current_cards = []
     k = 0
     
     # If there are no contours, do nothing
     if len(cnts_sort) != 0:
-
 
         # For each contour detected:
         for i in range(len(cnts_sort)):
@@ -88,66 +127,70 @@ while cam_quit == 0:
                 # determines the cards properties (corner points, etc). It generates a
                 # flattened 200x300 image of the card, and isolates the card's
                 # suit and rank from the image.
-                cards.append(Cards.preprocess_card(cnts_sort[i],image))
 
-                # Find the best rank and suit match for the card.
-                rank, suit, rank_diff, suit_diff = Cards.match_card(cards[k], train_ranks, train_suits)
-                cards[k].best_rank_match = rank
-                cards[k].best_suit_match = suit
-                cards[k].rank_diff = rank_diff
-                cards[k].suit_diff = suit_diff
+                # Create a card object from the contour
+                card = Cards.preprocess_card(cnts_sort[i], image)
 
-                # Update last known rank and suit if detection is valid
-                if cards[k].best_rank_match != "Unknown":
-                    last_known_rank = cards[k].best_rank_match
-                if cards[k].best_suit_match != "Unknown":
-                    last_known_suit = cards[k].best_suit_match
+                # Append to current cards list
+                current_cards.append(card)
+                k += 1
 
-                # Use last known rank and suit if current detection is "Unknown"
-                if cards[k].best_rank_match == "Unknown" and last_known_rank is not None:
-                    cards[k].best_rank_match = last_known_rank
-                if cards[k].best_suit_match == "Unknown" and last_known_suit is not None:
-                    cards[k].best_suit_match = last_known_suit
+        # Match current cards with previous cards
+        match_cards(current_cards, previous_cards)
 
-                # Draw center point and match result on the image.
-                image = Cards.draw_results(image, cards[k])
-                k = k + 1
+        # For each card, perform matching and update last known values
+        for card in current_cards:
+            # Find the best rank and suit match for the card.
+            rank, suit, rank_diff, suit_diff = Cards.match_card(card, train_ranks, train_suits)
+            card.best_rank_match = rank
+            card.best_suit_match = suit
+            card.rank_diff = rank_diff
+            card.suit_diff = suit_diff
+
+            # Update last known rank and suit if detection is valid
+            if card.best_rank_match != "Unknown":
+                card.last_rank = card.best_rank_match
+            else:
+                if card.last_rank is not None:
+                    card.best_rank_match = card.last_rank
+
+            if card.best_suit_match != "Unknown":
+                card.last_suit = card.best_suit_match
+            else:
+                if card.last_suit is not None:
+                    card.best_suit_match = card.last_suit
+
+            # Draw center point and match result on the image.
+            image = Cards.draw_results(image, card)
+
+        # Draw card contours on image
+        if len(current_cards) != 0:
+            temp_cnts = [card.contour for card in current_cards]
+            cv2.drawContours(image, temp_cnts, -1, (255, 0, 0), 2)
 
     else:
-        # No cards detected. If we have last known rank and suit, display them.
-        if last_known_rank is not None and last_known_suit is not None:
-            x = 50  # Adjust the position as needed
-            y = 50
-            cv2.putText(image, f"{last_known_rank} of {last_known_suit}", (x, y), font, 1, (50, 200, 200), 2, cv2.LINE_AA)
-	    
-        # # Draw card contours on image (have to do contours all at once or
-        # # they do not show up properly for some reason)
-        # if (len(cards) != 0):
-        #     temp_cnts = []
-        #     for i in range(len(cards)):
-        #         temp_cnts.append(cards[i].contour)
-        #     cv2.drawContours(image,temp_cnts, -1, (255,0,0), 2)
-        
-        
-    # Draw framerate in the corner of the image. Framerate is calculated at the end of the main loop,
-    # so the first time this runs, framerate will be shown as 0.
-    cv2.putText(image,"FPS: "+str(int(frame_rate_calc)),(10,26),font,0.7,(255,0,255),2,cv2.LINE_AA)
+        # No cards detected in the current frame
+        pass  # Optionally, you could handle cards leaving the frame here
 
-    # Finally, display the image with the identified cards!
-    cv2.imshow("Card Detector",image)
+    # Update previous cards with current cards for the next frame
+    previous_cards = current_cards
+
+    # Draw framerate in the corner of the image.
+    cv2.putText(image, "FPS: " + str(int(frame_rate_calc)), (10, 26), font, 0.7, (255, 0, 255), 2, cv2.LINE_AA)
+
+    # Display the image
+    cv2.imshow("Card Detector", image)
 
     # Calculate framerate
     t2 = cv2.getTickCount()
-    time1 = (t2-t1)/freq
-    frame_rate_calc = 1/time1
-    
-    # Poll the keyboard. If 'q' is pressed, exit the main loop.
+    time1 = (t2 - t1) / freq
+    frame_rate_calc = 1 / time1
+
+    # Poll the keyboard
     key = cv2.waitKey(1) & 0xFF
     if key == ord("q"):
         cam_quit = 1
-        
 
-# Close all windows and close the PiCamera video stream.
+# Clean up
 cv2.destroyAllWindows()
 videostream.stop()
-
