@@ -132,17 +132,17 @@ def find_cards(thresh_image):
     from largest to smallest."""
 
     # Find contours and sort their indices by contour size
-    cnts,hier = cv2.findContours(thresh_image,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-    index_sort = sorted(cnts, key=cv2.contourArea, reverse=True)
+    cnts, hier = cv2.findContours(thresh_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    index_sort = sorted(range(len(cnts)), key=lambda i: cv2.contourArea(cnts[i]), reverse=True)
 
     # If there are no contours, do nothing
     if len(cnts) == 0:
         return [], []
-    
+
     # Otherwise, initialize empty sorted contour and hierarchy lists
     cnts_sort = []
     hier_sort = []
-    cnt_is_card = np.zeros(len(cnts),dtype=int)
+    cnt_is_card = np.zeros(len(cnts), dtype=int)
 
     # Fill empty lists with sorted contour and sorted hierarchy. Now,
     # the indices of the contour list still correspond with those of
@@ -159,11 +159,11 @@ def find_cards(thresh_image):
 
     for i in range(len(cnts_sort)):
         size = cv2.contourArea(cnts_sort[i])
-        peri = cv2.arcLength(cnts_sort[i],True)
-        approx = cv2.approxPolyDP(cnts_sort[i],0.01*peri,True)
-        
+        peri = cv2.arcLength(cnts_sort[i], True)
+        approx = cv2.approxPolyDP(cnts_sort[i], 0.01 * peri, True)
+
         if ((size < CARD_MAX_AREA) and (size > CARD_MIN_AREA)
-            and (hier_sort[i][3] == -1) and (len(approx) == 4)):
+                and (hier_sort[i][3] == -1) and (len(approx) == 4)):
             cnt_is_card[i] = 1
 
     return cnts_sort, cnt_is_card
@@ -212,7 +212,7 @@ def preprocess_card(contour, image):
     Qsuit = query_thresh[186:336, 0:128]
 
     # Find rank contour and bounding rectangle, isolate and find largest contour
-    dummy, Qrank_cnts, hier = cv2.findContours(Qrank, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    Qrank_cnts, hier = cv2.findContours(Qrank, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
     Qrank_cnts = sorted(Qrank_cnts, key=cv2.contourArea,reverse=True)
 
     # Find bounding rectangle for largest contour, use it to resize query rank
@@ -224,7 +224,7 @@ def preprocess_card(contour, image):
         qCard.rank_img = Qrank_sized
 
     # Find suit contour and bounding rectangle, isolate and find largest contour
-    dummy, Qsuit_cnts, hier = cv2.findContours(Qsuit, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    Qsuit_cnts, hier = cv2.findContours(Qsuit, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
     Qsuit_cnts = sorted(Qsuit_cnts, key=cv2.contourArea,reverse=True)
     
     # Find bounding rectangle for largest contour, use it to resize query suit
