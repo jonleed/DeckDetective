@@ -20,7 +20,8 @@ videostream = VideoStream.VideoStream((IM_WIDTH, IM_HEIGHT), FRAME_RATE, 2, 0).s
 time.sleep(1)  # Give the camera time to warm up
 
 # Initialize card detector
-card_detector = CardDetector(videostream, number_of_decks=1)
+card_detector = CardDetector(videostream, IM_WIDTH=1280, IM_HEIGHT=720, number_of_decks=1)
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
