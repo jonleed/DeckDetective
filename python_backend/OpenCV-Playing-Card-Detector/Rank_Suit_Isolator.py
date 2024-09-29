@@ -121,19 +121,19 @@ for Name in ['Ace','Two','Three','Four','Five','Six','Seven','Eight',
 
         #corner_gray = cv2.cvtColor(corner,cv2.COLOR_BGR2GRAY)
         corner_zoom = cv2.resize(corner, (0,0), fx=4, fy=4)
-        # corner_blur = cv2.GaussianBlur(corner_zoom,(5,5),0)
-        # retval, corner_thresh = cv2.threshold(corner_blur, 155, 255, cv2. THRESH_BINARY_INV)
+        corner_blur = cv2.GaussianBlur(corner_zoom,(5, 5),0)
+        retval, corner_thresh = cv2.threshold(corner_blur, 155, 255, cv2. THRESH_BINARY_INV)
 
         # Convert to blur
-        corner_blur = cv2.GaussianBlur(corner_zoom, (5, 5), 0)
+        # corner_blur = cv2.GaussianBlur(corner_zoom, (5, 5), 0)
 
         # Optional: possibly apply histogram equalization
         # corner_blur = cv2.equalizeHist(corner_blur)
 
         # Apply adaptive thresholding
-        corner_thresh = cv2.adaptiveThreshold(
-            corner_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
-        )
+        # corner_thresh = cv2.adaptiveThreshold(
+        #     corner_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
+        # )
 
         # Apply morphological opening to remove noise
         kernel = np.ones((3, 3), np.uint8)

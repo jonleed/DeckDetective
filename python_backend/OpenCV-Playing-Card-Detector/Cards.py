@@ -54,8 +54,8 @@ class Query_card:
         self.corner_pts = []  # Corner points of card
         self.center = []  # Center point of card
         self.warp = []  # 200x300, flattened, grayed, blurred image
-        self.rank_img = []  # Thresholded, sized image of card's rank
-        self.suit_img = []  # Thresholded, sized image of card's suit
+        self.rank_img = None  # Thresholded, sized image of card's rank
+        self.suit_img = None  # Thresholded, sized image of card's suit
         self.best_rank_match = "Unknown"  # Best matched rank
         self.best_suit_match = "Unknown"  # Best matched suit
         self.last_rank = None  # Last known rank
@@ -90,12 +90,17 @@ def load_ranks(filepath):
         train_ranks.append(Train_ranks())
         train_ranks[i].name = Rank
         filename = Rank + '.jpg'
-        train_ranks[i].img = cv2.imread(filepath+filename, cv2.IMREAD_GRAYSCALE)
+        img = cv2.imread(filepath+filename, cv2.IMREAD_GRAYSCALE)
 
-        # Normalize the training rank image
-        train_ranks[i].img = cv2.normalize(train_ranks[i].img, None, 0, 255, cv2.NORM_MINMAX)
+        if img is not None:
+            # Normalize the training rank image
+            train_ranks[i].img = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX)
 
-        i = i + 1
+        else:
+            print(f"Error loading image for rank: {Rank}")
+            train_ranks[i].img = None  # Set to None if loading failed
+
+        i += 1
 
     return train_ranks
 
@@ -221,14 +226,16 @@ def preprocess_card(contour, image):
     thresh_level = white_level - CARD_THRESH
     if (thresh_level <= 0):
         thresh_level = 1
-    # retval, query_thresh = cv2.threshold(Qcorner_zoom, thresh_level, 255, cv2. THRESH_BINARY_INV)
+
     # Convert to blur
     Qcorner_blur = cv2.GaussianBlur(Qcorner_zoom, (5, 5), 0)
 
+    retval, query_thresh = cv2.threshold(Qcorner_zoom, thresh_level, 255, cv2. THRESH_BINARY_INV)
+
     # Apply adaptive thresholding
-    query_thresh = cv2.adaptiveThreshold(
-        Qcorner_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
-    )
+    # query_thresh = cv2.adaptiveThreshold(
+    #     Qcorner_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
+    # )
     # Define a kernel size
     kernel = np.ones((3, 3), np.uint8)
 
@@ -262,6 +269,9 @@ def preprocess_card(contour, image):
 
         # Normalize rank image
         qCard.rank_img = cv2.normalize(qCard.rank_img, None, 0, 255, cv2.NORM_MINMAX)
+    else:
+        print("No rank contours found; setting qCard.rank_img to None")
+        qCard.rank_img = None
 
     # Find suit contour and bounding rectangle, isolate and find largest contour
     Qsuit_cnts, hier = cv2.findContours(Qsuit, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
@@ -277,60 +287,138 @@ def preprocess_card(contour, image):
 
         # Normalize suit image
         qCard.suit_img = cv2.normalize(qCard.suit_img, None, 0, 255, cv2.NORM_MINMAX)
+    else:
+        print("No suit contours found; setting qCard.suit_img to None")
+        qCard.suit_img = None
 
     return qCard
 
-def match_card(qCard, train_ranks, train_suits):
-    """Finds best rank and suit matches for the query card. Differences
-    the query card rank and suit images with the train rank and suit images.
-    The best match is the rank or suit image that has the least difference."""
+# def match_card(qCard, train_ranks, train_suits):
+#     """Finds best rank and suit matches for the query card. Differences
+#     the query card rank and suit images with the train rank and suit images.
+#     The best match is the rank or suit image that has the least difference."""
 
-    best_rank_match_diff = float('inf')
-    best_suit_match_diff = float('inf')
-    best_rank_match_name = "Unknown"
-    best_suit_match_name = "Unknown"
-    i = 0
+#     best_rank_match_diff = float('inf')
+#     best_suit_match_diff = float('inf')
+#     best_rank_match_name = "Unknown"
+#     best_suit_match_name = "Unknown"
+#     i = 0
 
-    # If no contours were found in query card in preprocess_card function,
-    # the img size is zero, so skip the differencing process
-    # (card will be left as Unknown)
-    if (len(qCard.rank_img) != 0) and (len(qCard.suit_img) != 0):
+#     # If no contours were found in query card in preprocess_card function,
+#     # the img size is zero, so skip the differencing process
+#     # (card will be left as Unknown)
+#     if (len(qCard.rank_img) != 0) and (len(qCard.suit_img) != 0):
         
-        # Difference the query card rank image from each of the train rank images,
-        # and store the result with the least difference
-        # For rank matching
-        for Trank in train_ranks:
-            res = cv2.matchTemplate(qCard.rank_img, Trank.img, cv2.TM_CCOEFF_NORMED)
-            _, max_val, _, _ = cv2.minMaxLoc(res)
-            rank_diff = 1 - max_val  # Since max_val ranges from -1 to 1
+#         # Difference the query card rank image from each of the train rank images,
+#         # and store the result with the least difference
+#         # For rank matching
+#         for Trank in train_ranks:
+#             res = cv2.matchTemplate(qCard.rank_img, Trank.img, cv2.TM_CCOEFF_NORMED)
+#             _, max_val, _, _ = cv2.minMaxLoc(res)
+#             rank_diff = 1 - max_val  # Since max_val ranges from -1 to 1
 
-            if rank_diff < best_rank_match_diff:
-                best_rank_match_diff = rank_diff
-                best_rank_name = Trank.name
+#             if rank_diff < best_rank_match_diff:
+#                 best_rank_match_diff = rank_diff
+#                 best_rank_name = Trank.name
 
-        # For suit matching
+#         # For suit matching
+#         for Tsuit in train_suits:
+#             res = cv2.matchTemplate(qCard.suit_img, Tsuit.img, cv2.TM_CCOEFF_NORMED)
+#             _, max_val, _, _ = cv2.minMaxLoc(res)
+#             suit_diff = 1 - max_val
+
+#             if suit_diff < best_suit_match_diff:
+#                 best_suit_match_diff = suit_diff
+#                 best_suit_name = Tsuit.name
+
+#     # Combine best rank match and best suit match to get query card's identity.
+#     # If the best matches have too high of a difference value, card identity
+#     # is still Unknown
+#     if (best_rank_match_diff < RANK_DIFF_MAX):
+#         best_rank_match_name = best_rank_name
+
+#     if (best_suit_match_diff < SUIT_DIFF_MAX):
+#         best_suit_match_name = best_suit_name
+
+#     # Return the identiy of the card and the quality of the suit and rank match
+#     return best_rank_match_name, best_suit_match_name, best_rank_match_diff, best_suit_match_diff
+    
+def match_card(qCard, train_ranks, train_suits):
+    """Finds best rank and suit matches for the query card using ORB feature matching for ranks
+    and template matching for suits."""
+
+    # Initialize ORB detector
+    orb = cv2.ORB_create()
+
+    best_rank_match_name = "Unknown"
+    max_rank_matches = 0
+
+    # For rank matching using ORB
+    if qCard.rank_img is not None and qCard.rank_img.size != 0:
+        # Compute keypoints and descriptors for query rank image
+        kp_query_rank, des_query_rank = orb.detectAndCompute(qCard.rank_img, None)
+
+        if des_query_rank is not None:
+            for Trank in train_ranks:
+                if Trank.img is not None:
+                    # Compute keypoints and descriptors for training rank image
+                    kp_train_rank, des_train_rank = orb.detectAndCompute(Trank.img, None)
+
+                    # Check if descriptors are not None
+                    if des_train_rank is not None:
+                        # Match descriptors
+                        bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+                        matches = bf.match(des_query_rank, des_train_rank)
+
+                        # Count the number of good matches
+                        num_matches = len(matches)
+
+                        if num_matches > max_rank_matches:
+                            max_rank_matches = num_matches
+                            best_rank_match_name = Trank.name
+        else:
+            print("No descriptors found in query rank image")
+    else:
+        print("qCard.rank_img is not valid for ORB detection")
+
+    # Set a threshold for minimum number of matches
+    MIN_MATCH_COUNT_RANK = 10  # Adjust based on testing
+    if max_rank_matches >= MIN_MATCH_COUNT_RANK:
+        qCard.best_rank_match = best_rank_match_name
+    else:
+        qCard.best_rank_match = "Unknown"
+
+    # For suit matching using template matching
+    best_suit_match_diff = float('inf')
+    best_suit_match_name = "Unknown"
+
+    if qCard.suit_img is not None and qCard.suit_img.size != 0:
         for Tsuit in train_suits:
-            res = cv2.matchTemplate(qCard.suit_img, Tsuit.img, cv2.TM_CCOEFF_NORMED)
-            _, max_val, _, _ = cv2.minMaxLoc(res)
-            suit_diff = 1 - max_val
+            if Tsuit.img is not None:
+                res = cv2.matchTemplate(qCard.suit_img, Tsuit.img, cv2.TM_CCOEFF_NORMED)
+                _, max_val, _, _ = cv2.minMaxLoc(res)
+                suit_diff = 1 - max_val
 
-            if suit_diff < best_suit_match_diff:
-                best_suit_match_diff = suit_diff
-                best_suit_name = Tsuit.name
+                if suit_diff < best_suit_match_diff:
+                    best_suit_match_diff = suit_diff
+                    best_suit_match_name = Tsuit.name
 
-    # Combine best rank match and best suit match to get query card's identity.
-    # If the best matches have too high of a difference value, card identity
-    # is still Unknown
-    if (best_rank_match_diff < RANK_DIFF_MAX):
-        best_rank_match_name = best_rank_name
+        if best_suit_match_diff < SUIT_DIFF_MAX:
+            qCard.best_suit_match = best_suit_match_name
+            qCard.suit_diff = best_suit_match_diff
+        else:
+            qCard.best_suit_match = "Unknown"
+            qCard.suit_diff = None
+    else:
+        print("qCard.suit_img is not valid for template matching")
+        qCard.best_suit_match = "Unknown"
+        qCard.suit_diff = None
 
-    if (best_suit_match_diff < SUIT_DIFF_MAX):
-        best_suit_match_name = best_suit_name
+    # Since we are using feature matching for ranks, we don't have rank_diff
+    qCard.rank_diff = None
 
-    # Return the identiy of the card and the quality of the suit and rank match
-    return best_rank_match_name, best_suit_match_name, best_rank_match_diff, best_suit_match_diff
-    
-    
+    return qCard.best_rank_match, qCard.best_suit_match, qCard.rank_diff, qCard.suit_diff
+
 def draw_results(image, qCard):
     """Draw the card name, center point, and contour on the camera image."""
 
@@ -438,7 +526,5 @@ def flattener(image, pts, w, h):
     M = cv2.getPerspectiveTransform(temp_rect,dst)
     warp = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
     warp = cv2.cvtColor(warp,cv2.COLOR_BGR2GRAY)
-
-        
 
     return warp
