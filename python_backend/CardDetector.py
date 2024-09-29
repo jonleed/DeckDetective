@@ -37,8 +37,21 @@ class CardDetector:
         # Assign the video stream
         self.videostream = videostream
 
+        # Set the image width and height
         self.IM_WIDTH = IM_WIDTH
         self.IM_HEIGHT = IM_HEIGHT
+
+        # Load the deviations dictionary
+        self.deviations = {
+            # ('Hand Total', 'Dealer Upcard'): (True Count Threshold, 'Action')
+            ('16', '10'): (0, 'Stand'),    # Stand on 16 vs. 10 when TC >= 0
+            ('15', '10'): (4, 'Stand'),    # Stand on 15 vs. 10 when TC >= 4
+            ('12', '3'): (2, 'Stand'),     # Stand on 12 vs. 3 when TC >= 2
+            ('12', '2'): (3, 'Stand'),     # Stand on 12 vs. 2 when TC >= 3
+            ('13', '2'): (-1, 'Hit'),      # Hit on 13 vs. 2 when TC <= -1
+            # Might need more
+        }
+
 
         # Load the train rank and suit images
         path = os.path.dirname(os.path.abspath(__file__))
@@ -186,15 +199,10 @@ class CardDetector:
             player_hand = [card.best_rank_match for card in player_cards if card.best_rank_match != 'Unknown']
             dealer_upcard = dealer_cards[0].best_rank_match if dealer_cards and dealer_cards[0].best_rank_match != 'Unknown' else None
 
-            # Get suggestion
-            suggestion = self.get_suggestion(player_hand, dealer_upcard)
-
-            # Draw the suggestion on the image
-            if suggestion:
-                cv2.putText(image, f"Suggestion: {suggestion}", (10, 100), self.font, 1, (0, 255, 0), 2, cv2.LINE_AA)
-
         else:
             # No cards detected in the current frame
+            player_hand = []
+            dealer_upcard = None   
             pass
         
          # Draw the green line to divide dealer and player areas
@@ -214,7 +222,21 @@ class CardDetector:
             true_count = int(self.running_count / number_of_decks_remaining)
 
         # Optional: Print the true count for debugging
-        print(f"True Count: {true_count}")
+        # print(f"True Count: {true_count}")
+
+       # Get suggestion
+        suggestion = self.get_suggestion(player_hand, dealer_upcard, true_count)
+
+        # Draw the suggestion on the image
+        if suggestion:
+            cv2.putText(image, f"Suggestion: {suggestion}", (10, 100), self.font, 1, (0, 255, 0), 2, cv2.LINE_AA)
+
+        # Draw the green line to divide dealer and player areas
+        cv2.line(image, (0, int(self.IM_HEIGHT / 2)), (self.IM_WIDTH, int(self.IM_HEIGHT / 2)), (0, 255, 0), 2)
+
+        # Display 'Dealer' and 'Player' labels
+        cv2.putText(image, "Dealer", (10, int(self.IM_HEIGHT / 4)), self.font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(image, "Player", (10, int(3 * self.IM_HEIGHT / 4)), self.font, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
         # Draw framerate in the corner of the image.
         cv2.putText(image, "FPS: " + str(int(self.frame_rate_calc)), (10, 26), self.font, 0.7, (255, 0, 255), 2, cv2.LINE_AA)
@@ -227,10 +249,10 @@ class CardDetector:
         # Return the processed image and the true count
         return image, true_count
     
-    def get_suggestion(self, player_hand, dealer_upcard):
+    def get_suggestion(self, player_hand, dealer_upcard, true_count):
         """
         Returns a suggestion ('Hit', 'Stand', 'Double Down', 'Split', 'Surrender')
-        based on the player's hand and dealer's upcard.
+        based on the player's hand, dealer's upcard, and true count.
         """
         # Ensure we have necessary information
         if not player_hand or not dealer_upcard:
@@ -255,7 +277,7 @@ class CardDetector:
             total -= 10
             num_aces -= 1
 
-        if 11 in player_values:
+        if 11 in player_values and total <= 21:
             soft = True
 
         # Convert dealer's upcard to value
@@ -263,14 +285,30 @@ class CardDetector:
         if dealer_value == 11:
             dealer_value = 1  # Treat dealer's Ace as 1
 
-        # Determine suggestion based on basic strategy
+        # Get basic strategy suggestion
         suggestion = self.basic_strategy(total, soft, player_hand, dealer_value)
+
+        # Apply deviations based on true count
+        deviation_key = (str(total), str(dealer_value))
+        if deviation_key in self.deviations:
+            tc_threshold, deviation_action = self.deviations[deviation_key]
+            if true_count >= tc_threshold:
+                suggestion = deviation_action
+
         return suggestion
+
 
     def basic_strategy(self, total, soft, player_hand, dealer_value):
         """
         Determines the suggested action based on basic strategy rules.
         """
+        # Map card ranks to values
+        rank_values = {
+            'Two': 2, 'Three': 3, 'Four': 4, 'Five': 5, 'Six': 6,
+            'Seven': 7, 'Eight': 8, 'Nine': 9, 'Ten': 10,
+            'Jack': 10, 'Queen': 10, 'King': 10, 'Ace': 11
+        }
+
         # Surrender rules
         if total == 16 and dealer_value in [9, 10, 1]:
             return 'Surrender'
@@ -279,33 +317,71 @@ class CardDetector:
 
         # Splitting logic
         if len(player_hand) == 2 and player_hand[0] == player_hand[1]:
-            # Implement splitting rules here if needed
-            pass
+            pair_rank = player_hand[0]
+            pair_value = rank_values.get(pair_rank, 0)
+
+            # Always split aces
+            if pair_rank == 'Ace':
+                return 'Split'
+            # Never split tens
+            elif pair_value == 10:
+                return 'Stand'
+            elif pair_value == 9:
+                if dealer_value in [2, 3, 4, 5, 6, 8, 9]:
+                    return 'Split'
+                else:
+                    return 'Stand'
+            elif pair_value == 8:
+                return 'Split'
+            elif pair_value == 7:
+                if dealer_value in range(2, 8):  # Dealer 2 through 7
+                    return 'Split'
+                else:
+                    return 'Hit'
+            elif pair_value == 6:
+                if dealer_value in range(2, 7):  # Dealer 2 through 6
+                    return 'Split'
+                else:
+                    return 'Hit'
+            elif pair_value == 5:
+                if dealer_value in range(2, 10):  # Dealer 2 through 9
+                    return 'Double Down'
+                else:
+                    return 'Hit'
+            elif pair_value == 4:
+                if dealer_value in [5, 6]:
+                    return 'Split'
+                else:
+                    return 'Hit'
+            elif pair_value == 3 or pair_value == 2:
+                if dealer_value in range(2, 8):  # Dealer 2 through 7
+                    return 'Split'
+                else:
+                    return 'Hit'
 
         # Soft totals
         if soft:
-            # Implement soft total rules
-            if total == 20:
+            if total == 20:  # Soft 20 (A,9)
                 return 'Stand'
-            elif total == 19:
+            elif total == 19:  # Soft 19 (A,8)
                 if dealer_value == 6:
                     return 'Double Down'
                 else:
                     return 'Stand'
-            elif total == 18:
-                if 2 <= dealer_value <= 6:
+            elif total == 18:  # Soft 18 (A,7)
+                if dealer_value in range(3, 7):  # Dealer 3 through 6
                     return 'Double Down'
-                elif dealer_value >= 9 or dealer_value == 1:
-                    return 'Hit'
-                else:
+                elif dealer_value in [2, 7, 8]:
                     return 'Stand'
-            elif total == 17:
-                if 3 <= dealer_value <= 6:
+                else:
+                    return 'Hit'
+            elif total == 17:  # Soft 17 (A,6)
+                if dealer_value in range(3, 7):  # Dealer 3 through 6
                     return 'Double Down'
                 else:
                     return 'Hit'
-            elif total in [13, 14, 15, 16]:
-                if 4 <= dealer_value <= 6:
+            elif total in [13, 14, 15, 16]:  # Soft 13 to 16 (A,2 to A,5)
+                if dealer_value in [4, 5, 6]:
                     return 'Double Down'
                 else:
                     return 'Hit'
@@ -315,25 +391,25 @@ class CardDetector:
             # Hard totals
             if total >= 17:
                 return 'Stand'
-            elif 13 <= total <= 16:
-                if 2 <= dealer_value <= 6:
+            elif total >= 13:
+                if dealer_value in range(2, 7):  # Dealer 2 through 6
                     return 'Stand'
                 else:
                     return 'Hit'
             elif total == 12:
-                if 4 <= dealer_value <= 6:
+                if dealer_value in range(4, 7):  # Dealer 4 through 6
                     return 'Stand'
                 else:
                     return 'Hit'
             elif total == 11:
                 return 'Double Down'
             elif total == 10:
-                if 2 <= dealer_value <= 9:
+                if dealer_value in range(2, 10):  # Dealer 2 through 9
                     return 'Double Down'
                 else:
                     return 'Hit'
             elif total == 9:
-                if 3 <= dealer_value <= 6:
+                if dealer_value in range(3, 7):  # Dealer 3 through 6
                     return 'Double Down'
                 else:
                     return 'Hit'
