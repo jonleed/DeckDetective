@@ -196,6 +196,13 @@ class CardDetector:
         else:
             # No cards detected in the current frame
             pass
+        
+         # Draw the green line to divide dealer and player areas
+        cv2.line(image, (0, int(self.IM_HEIGHT / 2)), (self.IM_WIDTH, int(self.IM_HEIGHT / 2)), (0, 255, 0), 2)
+
+        # Display 'Dealer' and 'Player' labels
+        cv2.putText(image, "Dealer", (10, int(self.IM_HEIGHT / 4)), self.font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(image, "Player", (10, int(3 * self.IM_HEIGHT / 4)), self.font, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
         # Calculate number of decks remaining
         number_of_decks_remaining = (self.total_cards_in_shoe - self.total_cards_seen) / 52
