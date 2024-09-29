@@ -93,7 +93,7 @@ class CardDetector:
     def process_frame(self):
         """
         Processes a single frame from the video stream and updates card counts.
-        Returns the processed image and the true count.
+        Returns the processed image, the true count, and the suggestion.
         """
         # Start timer (for calculating frame rate)
         t1 = cv2.getTickCount()
@@ -110,6 +110,9 @@ class CardDetector:
         # Initialize a new "cards" list to assign the card objects.
         current_cards = []
         k = 0
+
+        # Initialize suggestion
+        suggestion = None
 
         # If there are contours, process them
         if len(cnts_sort) != 0:
@@ -202,15 +205,7 @@ class CardDetector:
         else:
             # No cards detected in the current frame
             player_hand = []
-            dealer_upcard = None   
-            pass
-        
-         # Draw the green line to divide dealer and player areas
-        cv2.line(image, (0, int(self.IM_HEIGHT / 2)), (self.IM_WIDTH, int(self.IM_HEIGHT / 2)), (0, 255, 0), 2)
-
-        # Display 'Dealer' and 'Player' labels
-        cv2.putText(image, "Dealer", (10, int(self.IM_HEIGHT / 4)), self.font, 1, (255, 255, 255), 2, cv2.LINE_AA)
-        cv2.putText(image, "Player", (10, int(3 * self.IM_HEIGHT / 4)), self.font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            dealer_upcard = None
 
         # Calculate number of decks remaining
         number_of_decks_remaining = (self.total_cards_in_shoe - self.total_cards_seen) / 52
@@ -221,10 +216,7 @@ class CardDetector:
         else:
             true_count = int(self.running_count / number_of_decks_remaining)
 
-        # Optional: Print the true count for debugging
-        # print(f"True Count: {true_count}")
-
-       # Get suggestion
+        # Get suggestion
         suggestion = self.get_suggestion(player_hand, dealer_upcard, true_count)
 
         # Draw the suggestion on the image
@@ -246,8 +238,13 @@ class CardDetector:
         time1 = (t2 - t1) / self.freq
         self.frame_rate_calc = 1 / time1
 
-        # Return the processed image and the true count
-        return image, true_count
+        # Ensure suggestion is a string
+        if suggestion is None:
+            suggestion = ""
+
+        # Return the processed image, the true count, and the suggestion
+        return image, true_count, suggestion
+
     
     def get_suggestion(self, player_hand, dealer_upcard, true_count):
         """
@@ -435,7 +432,7 @@ if __name__ == "__main__":
     try:
         while True:
             # Process a frame
-            image, true_count = card_detector.process_frame()
+            image, true_count, suggestion = card_detector.process_frame()
 
             # Display the image
             cv2.imshow("Card Detector", image)

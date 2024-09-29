@@ -29,10 +29,10 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             # Process a frame
-            image, true_count = card_detector.process_frame()
+            image, true_count, suggestion = card_detector.process_frame()
 
-            # Send the True Count over WebSocket
-            await websocket.send_json({"true_count": true_count})
+            # Send the True Count and suggestion over WebSocket
+            await websocket.send_json({"true_count": true_count, "suggestion": suggestion})
 
             # Convert frame to JPEG and send over WebSocket
             _, jpeg = cv2.imencode('.jpg', image)
@@ -46,3 +46,4 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.close()
         videostream.stop()
         cv2.destroyAllWindows()
+
