@@ -155,10 +155,10 @@ async def websocket_endpoint(websocket: WebSocket):
 # camera = cv2.VideoCapture(0)
 
 # Ensure the camera resource is released properly
-@app.on_event("shutdown")
-async def shutdown_event():
-    camera.release()
-    print("Camera resource released")
+# @app.on_event("shutdown")
+# async def shutdown_event():
+#     camera.release()
+#     print("Camera resource released")
 
 def match_cards(current_cards, previous_cards):
     """
