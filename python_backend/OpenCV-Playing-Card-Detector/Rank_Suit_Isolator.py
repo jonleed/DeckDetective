@@ -124,17 +124,6 @@ for Name in ['Ace','Two','Three','Four','Five','Six','Seven','Eight',
         corner_blur = cv2.GaussianBlur(corner_zoom,(5, 5),0)
         retval, corner_thresh = cv2.threshold(corner_blur, 155, 255, cv2. THRESH_BINARY_INV)
 
-        # Convert to blur
-        # corner_blur = cv2.GaussianBlur(corner_zoom, (5, 5), 0)
-
-        # Optional: possibly apply histogram equalization
-        # corner_blur = cv2.equalizeHist(corner_blur)
-
-        # Apply adaptive thresholding
-        # corner_thresh = cv2.adaptiveThreshold(
-        #     corner_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
-        # )
-
         # Apply morphological opening to remove noise
         kernel = np.ones((3, 3), np.uint8)
         corner_thresh = cv2.morphologyEx(corner_thresh, cv2.MORPH_OPEN, kernel)
@@ -145,7 +134,10 @@ for Name in ['Ace','Two','Three','Four','Five','Six','Seven','Eight',
 
         # Isolate suit or rank
         if i <= 13: # Isolate rank
-            rank = corner_thresh[20:200, 0:200] # Adjust these indices if necessary
+            height, width = corner_thresh.shape[:2]
+            start_row = int(0.05 * height)
+            end_row = int(0.75 * height)
+            rank = corner_thresh[start_row:end_row, 0:width]
             cv2.imshow("Rank Image", rank)
             # cv2.waitKey(0)
             rank_cnts, hier = cv2.findContours(rank, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)

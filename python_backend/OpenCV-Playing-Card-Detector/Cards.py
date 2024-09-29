@@ -235,7 +235,14 @@ def preprocess_card(contour, image):
     # Split in to top and bottom half (top shows rank, bottom shows suit)
     ### NEEDS TO MATCH THE SIZE OF THE TRAINING IMAGES. ###
     ### REFER TO corner_thresh[20:200, 0:200] IN Rank_Suit_Isolator.py ###
-    Qrank = query_thresh[20:200, 0:200]
+    # Get dimensions of the thresholded corner image
+    height, width = query_thresh.shape[:2]
+
+    # Isolate rank from the top part of the corner image
+    start_row_rank = int(0.05 * height)
+    end_row_rank = int(0.75 * height)
+    Qrank = query_thresh[start_row_rank:end_row_rank, 0:width]
+
     Qsuit = query_thresh[200:400, 0:200]
 
     # Find rank contour and bounding rectangle, isolate and find largest contour
@@ -279,6 +286,18 @@ def preprocess_card(contour, image):
 def match_card(qCard, train_ranks, train_suits):
     """Finds best rank and suit matches for the query card using ORB feature matching for ranks
     and template matching for suits."""
+
+    if qCard.rank_img is None or qCard.rank_img.size == 0:
+        # print("Invalid query card rank image")
+        return "Unknown", "Unknown", None, None
+
+    if qCard.suit_img is None or qCard.suit_img.size == 0:
+        # print("Invalid query card suit image")
+        return "Unknown", "Unknown", None, None
+
+    if not train_ranks or not train_suits:
+        # print("No training data available")
+        return "Unknown", "Unknown", None, None
 
     # Initialize ORB detector
     orb = cv2.ORB_create(nfeatures=1000, scaleFactor=1.2, nlevels=8)
