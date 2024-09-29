@@ -10,9 +10,16 @@ import VideoStream
 import time
 import math
 
-
 ### ---- INITIALIZATION ---- ###
 # Define constants and initialize variables
+
+# Initialize variables for counting
+running_count = 0
+total_cards_seen = 0
+number_of_decks = 1  # Adjust based on your game setup
+total_cards_in_shoe = number_of_decks * 52
+counted_cards = set() # Set to store tuples of (Rank, Suit)
+
 # Initialize last known rank and suit
 last_known_rank = None
 last_known_suit = None
@@ -154,6 +161,27 @@ while cam_quit == 0:
                 if card.last_suit is not None:
                     card.best_suit_match = card.last_suit
 
+            # Create a tuple of the card's rank and suit
+            card_identity = (card.best_rank_match, card.best_suit_match)
+
+            # If this card has not been counted before and both rank and suit are known
+            if card_identity not in counted_cards and card.best_rank_match != "Unknown" and card.best_suit_match != "Unknown":
+                # Assign count value based on rank
+                rank = card.best_rank_match
+                if rank in ['Two', 'Three', 'Four', 'Five', 'Six']:
+                    count_value = 1
+                elif rank in ['Ten', 'Jack', 'Queen', 'King', 'Ace']:
+                    count_value = -1
+                else:
+                    count_value = 0  # For Seven, Eight, Nine
+
+                # Update running count and total cards seen
+                running_count += count_value
+                total_cards_seen += 1
+
+                # Add the card to counted cards
+                counted_cards.add(card_identity)
+
             # Draw center point and match result on the image.
             image = Cards.draw_results(image, card)
 
@@ -162,9 +190,21 @@ while cam_quit == 0:
             temp_cnts = [card.contour for card in current_cards]
             cv2.drawContours(image, temp_cnts, -1, (255, 0, 0), 2)
 
+        # Calculate number of decks remaining
+        number_of_decks_remaining = (total_cards_in_shoe - total_cards_seen) / 52
+
+        # Avoid division by zero
+        if number_of_decks_remaining <= 0:
+            true_count = 0
+        else:
+            true_count = int(running_count / number_of_decks_remaining)
+
+        # Optional: Print the true count for debugging
+        print(f"True Count: {true_count:.2f}")
+
     else:
         # No cards detected in the current frame
-        pass  # Optionally, you could handle cards leaving the frame here
+        pass
 
     # Update previous cards with current cards for the next frame
     previous_cards = current_cards
