@@ -9,6 +9,7 @@
 - [Introduction](#introduction)
 - [Features](#features)
 - [How It Works](#how-it-works)
+- [Screenshots and Examples](#screenshots-and-examples)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Usage](#usage)
@@ -51,6 +52,30 @@ DeckDetective processes video frames from a webcam or video feed to detect and r
 3. **Calculates Counts**: Updates the running count and true count based on recognized cards using card counting techniques.
 4. **Generates Suggestions**: Provides strategy suggestions based on basic blackjack strategy and adjusts them according to the true count.
 5. **Displays Information**: Overlays the video feed with annotations showing the detected cards, true count, and strategic advice within a Vue.js frontend.
+
+---
+
+## Screenshots and Examples
+
+Below are some screenshots and GIFs demonstrating DeckDetective in action:
+
+### Live Card Detection
+
+![Deck Detective](https://github.com/user-attachments/assets/c3695f47-bfe0-4933-98f9-169c261a0bb5)
+
+*DeckDetective detecting and recognizing cards in real-time.*
+
+### Strategy Suggestions
+
+<img width="1280" alt="Screen Shot 2024-09-29 at 10 11 43 AM" src="https://github.com/user-attachments/assets/7f4f715a-e724-448c-ac26-5602f06fd367">
+
+*Real-time strategy suggestions displayed alongside the video feed.*
+
+### True Count Display
+
+<img width="1179" alt="Screen Shot 2024-09-29 at 10 11 55 AM" src="https://github.com/user-attachments/assets/cc5d59c4-0b67-4993-b559-f8e09e676dfa">
+
+*The true count and optimal move are updated dynamically as cards are detected.*
 
 ---
 
@@ -167,6 +192,7 @@ Open your web browser and navigate to the frontend URL provided in the terminal 
     - `main.js`: Entry point for the Vue.js application.
   - `package.json`: Node.js dependencies.
 - **Card_Imgs/**: Contains the training images for card ranks and suits used for card recognition.
+- **images/**: Directory to store screenshots and GIFs for the README.
 - **README.md**: Project documentation.
 - **LICENSE**: License information.
 
@@ -202,6 +228,7 @@ This project is licensed under the [MIT License](LICENSE).
 ## Contact
 
 For any questions or support, please open an issue on the [GitHub repository](https://github.com/jonleed/DeckDetective) or contact the project maintainers.
+
 ---
 
 ## Additional Notes
