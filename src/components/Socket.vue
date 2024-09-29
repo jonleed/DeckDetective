@@ -1,7 +1,7 @@
 <template>
   <div>
-    <h1>{{ liveNumber }}</h1>
-    <img :src="videoFrame" />
+    <!-- <h1>{{ liveNumber }}</h1> -->
+    <img :src="videoFrame"  id="cameraFeed" />
   </div>
 </template>
 
@@ -39,3 +39,10 @@ export default {
   }
 };
 </script>
+
+<style>
+#cameraFeed {
+  max-width: 90%;
+  height: auto;
+}
+</style>
