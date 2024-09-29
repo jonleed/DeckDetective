@@ -8,17 +8,7 @@ import Socket from './components/Socket.vue'
 
     <div class="video-container">
       <!-- Placeholder for the 720p video feed -->
-      <video
-        class="video-feed"
-        controls
-        autoplay
-        playsinline
-        width="1280"  
-        height="720"
-      >
-        <!--<source src="your-video-feed-url" type="video/webm" />-->
-        Your browser does not support the video tag.
-      </video>
+      <Socket />
     </div>
 
     <div class="values-container">
@@ -56,7 +46,8 @@ export default defineComponent({
 }
 
 .title {
-  font-size: 2rem;
+  /* font-size: 2rem; */
+  font-size: 4vw;
   margin-top: 0px;
   margin-bottom: 20px;
 }
@@ -78,6 +69,6 @@ export default defineComponent({
 }
 
 .value-item {
-  font-size: 1.5rem; /* Adjust the size as needed */
+  font-size: 4vh; /* Adjust the size as needed */
 }
 </style>
