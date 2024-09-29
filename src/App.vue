@@ -3,28 +3,72 @@ import Socket from './components/Socket.vue'
 </script>
 
 <template>
-  <div>
-    <a href="https://electron-vite.github.io" target="_blank">
-      <img src="/electron-vite.svg" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
+  <div class="app-container">
+    <h1 class="title">Deck Detective</h1>
+
+    <div class="video-container">
+      <!-- Placeholder for the 720p video feed -->
+      <Socket />
+    </div>
+
+    <div class="values-container">
+      <div class="value-item">
+        <strong>True Count:</strong>
+        <!--<span>{{ trueCount }}</span>-->
+      </div>
+      <div class="value-item">
+        <strong>Optimal Move:</strong>
+        <!--<span>{{ optimalMove }}</span>-->
+      </div>
+    </div>
   </div>
-  <Socket />
+  <HelloWorld msg="Vite + Vue" />
 </template>
 
+<script lang="ts">
+import { defineComponent, ref } from 'vue';
+
+export default defineComponent({
+  name: 'DeckDetective',
+  setup2() {
+    const trueCount = ref(0); // Initialize with your counter logic
+    const optimalMove = ref("Stand"); // Replace with your logic for the optimal move
+
+    return { trueCount, optimalMove };
+  },
+});
+</script>
+
 <style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
+.app-container {
+  text-align: center;
+  padding: 20px;
 }
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+
+.title {
+  /* font-size: 2rem; */
+  font-size: 4vw;
+  margin-top: 0px;
+  margin-bottom: 20px;
 }
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
+
+.video-container {
+  margin-bottom: 20px;
+}
+
+.video-feed {
+  max-width: 100%;
+  height: auto;
+  border: 2px solid #ccc; /* Optional: Add a border for styling */
+}
+
+.values-container {
+  display: flex;
+  justify-content: center;
+  gap: 40px; /* Space between the two value items */
+}
+
+.value-item {
+  font-size: 4vh; /* Adjust the size as needed */
 }
 </style>
