@@ -50,6 +50,7 @@ export default defineComponent({
   font-size: 4vw;
   margin-top: 0px;
   margin-bottom: 20px;
+  color: rgba(255, 255, 255, 0.87);
 }
 
 .video-container {
@@ -70,5 +71,6 @@ export default defineComponent({
 
 .value-item {
   font-size: 4vh; /* Adjust the size as needed */
+  color: rgba(255, 255, 255, 0.87);
 }
 </style>
