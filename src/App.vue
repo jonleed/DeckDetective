@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import Socket from './components/Socket.vue'
+import Tutorial from './components/Tutorial.vue';
+
+const showTutorial = ref(true);  // Controls the visibility of the tutorial
 </script>
 
 <template>
