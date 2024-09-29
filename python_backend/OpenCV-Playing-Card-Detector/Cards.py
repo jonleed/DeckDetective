@@ -1,10 +1,4 @@
 ############## Playing Card Detector Functions ###############
-#
-# Author: Evan Juras
-# Date: 9/5/17
-# Description: Functions and classes for CardDetector.py that perform 
-# various steps of the card detection algorithm
-
 
 # Import necessary packages
 import numpy as np
@@ -31,8 +25,6 @@ RANK_HEIGHT = 125
 SUIT_WIDTH = 70
 SUIT_HEIGHT = 100
 
-# RANK_DIFF_MAX = 2000
-# SUIT_DIFF_MAX = 700
 RANK_DIFF_MAX = 0.15  
 SUIT_DIFF_MAX = 0.15
 
@@ -230,23 +222,14 @@ def preprocess_card(contour, image):
     # Convert to blur
     Qcorner_blur = cv2.GaussianBlur(Qcorner_zoom, (5, 5), 0)
 
+    # retval, query_thresh = cv2.threshold(Qcorner_zoom, thresh_level, 255, cv2. THRESH_BINARY_INV)
     retval, query_thresh = cv2.threshold(Qcorner_zoom, thresh_level, 255, cv2. THRESH_BINARY_INV)
 
-    # Apply adaptive thresholding
-    # query_thresh = cv2.adaptiveThreshold(
-    #     Qcorner_blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
-    # )
     # Define a kernel size
     kernel = np.ones((3, 3), np.uint8)
 
     # Apply morphological opening to remove noise
     query_thresh = cv2.morphologyEx(query_thresh, cv2.MORPH_OPEN, kernel)
-
-    # # Apply Canny Edge Detection
-    # edges = cv2.Canny(query_thresh, 50, 150)
-    # # Use edges instead of query_thresh
-    # Qrank = edges[20:185, 0:128]
-    # Qsuit = edges[186:336, 0:128]
 
 
     # Split in to top and bottom half (top shows rank, bottom shows suit)
@@ -270,7 +253,7 @@ def preprocess_card(contour, image):
         # Normalize rank image
         qCard.rank_img = cv2.normalize(qCard.rank_img, None, 0, 255, cv2.NORM_MINMAX)
     else:
-        print("No rank contours found; setting qCard.rank_img to None")
+        # print("No rank contours found; setting qCard.rank_img to None")
         qCard.rank_img = None
 
     # Find suit contour and bounding rectangle, isolate and find largest contour
@@ -288,67 +271,17 @@ def preprocess_card(contour, image):
         # Normalize suit image
         qCard.suit_img = cv2.normalize(qCard.suit_img, None, 0, 255, cv2.NORM_MINMAX)
     else:
-        print("No suit contours found; setting qCard.suit_img to None")
+        # print("No suit contours found; setting qCard.suit_img to None")
         qCard.suit_img = None
 
     return qCard
-
-# def match_card(qCard, train_ranks, train_suits):
-#     """Finds best rank and suit matches for the query card. Differences
-#     the query card rank and suit images with the train rank and suit images.
-#     The best match is the rank or suit image that has the least difference."""
-
-#     best_rank_match_diff = float('inf')
-#     best_suit_match_diff = float('inf')
-#     best_rank_match_name = "Unknown"
-#     best_suit_match_name = "Unknown"
-#     i = 0
-
-#     # If no contours were found in query card in preprocess_card function,
-#     # the img size is zero, so skip the differencing process
-#     # (card will be left as Unknown)
-#     if (len(qCard.rank_img) != 0) and (len(qCard.suit_img) != 0):
-        
-#         # Difference the query card rank image from each of the train rank images,
-#         # and store the result with the least difference
-#         # For rank matching
-#         for Trank in train_ranks:
-#             res = cv2.matchTemplate(qCard.rank_img, Trank.img, cv2.TM_CCOEFF_NORMED)
-#             _, max_val, _, _ = cv2.minMaxLoc(res)
-#             rank_diff = 1 - max_val  # Since max_val ranges from -1 to 1
-
-#             if rank_diff < best_rank_match_diff:
-#                 best_rank_match_diff = rank_diff
-#                 best_rank_name = Trank.name
-
-#         # For suit matching
-#         for Tsuit in train_suits:
-#             res = cv2.matchTemplate(qCard.suit_img, Tsuit.img, cv2.TM_CCOEFF_NORMED)
-#             _, max_val, _, _ = cv2.minMaxLoc(res)
-#             suit_diff = 1 - max_val
-
-#             if suit_diff < best_suit_match_diff:
-#                 best_suit_match_diff = suit_diff
-#                 best_suit_name = Tsuit.name
-
-#     # Combine best rank match and best suit match to get query card's identity.
-#     # If the best matches have too high of a difference value, card identity
-#     # is still Unknown
-#     if (best_rank_match_diff < RANK_DIFF_MAX):
-#         best_rank_match_name = best_rank_name
-
-#     if (best_suit_match_diff < SUIT_DIFF_MAX):
-#         best_suit_match_name = best_suit_name
-
-#     # Return the identiy of the card and the quality of the suit and rank match
-#     return best_rank_match_name, best_suit_match_name, best_rank_match_diff, best_suit_match_diff
-    
+  
 def match_card(qCard, train_ranks, train_suits):
     """Finds best rank and suit matches for the query card using ORB feature matching for ranks
     and template matching for suits."""
 
     # Initialize ORB detector
-    orb = cv2.ORB_create()
+    orb = cv2.ORB_create(nfeatures=1000, scaleFactor=1.2, nlevels=8)
 
     best_rank_match_name = "Unknown"
     max_rank_matches = 0
@@ -376,17 +309,45 @@ def match_card(qCard, train_ranks, train_suits):
                         if num_matches > max_rank_matches:
                             max_rank_matches = num_matches
                             best_rank_match_name = Trank.name
-        else:
-            print("No descriptors found in query rank image")
-    else:
-        print("qCard.rank_img is not valid for ORB detection")
+    #     else:
+    #         print("No descriptors found in query rank image")
+    # else:
+    #     print("qCard.rank_img is not valid for ORB detection")
 
     # Set a threshold for minimum number of matches
-    MIN_MATCH_COUNT_RANK = 10  # Adjust based on testing
+    MIN_MATCH_COUNT_RANK = 5  # Adjust based on testing
     if max_rank_matches >= MIN_MATCH_COUNT_RANK:
         qCard.best_rank_match = best_rank_match_name
     else:
         qCard.best_rank_match = "Unknown"
+
+    # If ORB matching fails, try template matching for ranks
+    if qCard.best_rank_match == "Unknown":
+        best_rank_match_diff = float('inf')
+        for Trank in train_ranks:
+            if Trank.img is not None and qCard.rank_img is not None:
+                # Resize query image to match the size of the training image
+                query_resized = cv2.resize(qCard.rank_img, (Trank.img.shape[1], Trank.img.shape[0]))
+                
+                # Ensure both images are the same type
+                query_resized = query_resized.astype(np.float32)
+                train_img = Trank.img.astype(np.float32)
+                
+                try:
+                    res = cv2.matchTemplate(query_resized, train_img, cv2.TM_CCOEFF_NORMED)
+                    _, max_val, _, _ = cv2.minMaxLoc(res)
+                    rank_diff = 1 - max_val
+                    if rank_diff < best_rank_match_diff:
+                        best_rank_match_diff = rank_diff
+                        qCard.best_rank_match = Trank.name
+                except cv2.error as e:
+                    print(f"Error in template matching for rank {Trank.name}: {str(e)}")
+                    print(f"Query image shape: {query_resized.shape}, Train image shape: {train_img.shape}")
+        
+        if best_rank_match_diff > RANK_DIFF_MAX:
+            qCard.best_rank_match = "Unknown"
+
+    # print(f"Rank matching - Best match: {best_rank_match_name}, Matches: {max_rank_matches}")
 
     # For suit matching using template matching
     best_suit_match_diff = float('inf')
@@ -395,13 +356,24 @@ def match_card(qCard, train_ranks, train_suits):
     if qCard.suit_img is not None and qCard.suit_img.size != 0:
         for Tsuit in train_suits:
             if Tsuit.img is not None:
-                res = cv2.matchTemplate(qCard.suit_img, Tsuit.img, cv2.TM_CCOEFF_NORMED)
-                _, max_val, _, _ = cv2.minMaxLoc(res)
-                suit_diff = 1 - max_val
+                # Resize query image to match the size of the training image
+                query_resized = cv2.resize(qCard.suit_img, (Tsuit.img.shape[1], Tsuit.img.shape[0]))
+                
+                # Ensure both images are the same type
+                query_resized = query_resized.astype(np.float32)
+                train_img = Tsuit.img.astype(np.float32)
+                
+                try:
+                    res = cv2.matchTemplate(query_resized, train_img, cv2.TM_CCOEFF_NORMED)
+                    _, max_val, _, _ = cv2.minMaxLoc(res)
+                    suit_diff = 1 - max_val
 
-                if suit_diff < best_suit_match_diff:
-                    best_suit_match_diff = suit_diff
-                    best_suit_match_name = Tsuit.name
+                    if suit_diff < best_suit_match_diff:
+                        best_suit_match_diff = suit_diff
+                        best_suit_match_name = Tsuit.name
+                except cv2.error as e:
+                    print(f"Error in template matching for suit {Tsuit.name}: {str(e)}")
+                    print(f"Query image shape: {query_resized.shape}, Train image shape: {train_img.shape}")
 
         if best_suit_match_diff < SUIT_DIFF_MAX:
             qCard.best_suit_match = best_suit_match_name
@@ -410,7 +382,7 @@ def match_card(qCard, train_ranks, train_suits):
             qCard.best_suit_match = "Unknown"
             qCard.suit_diff = None
     else:
-        print("qCard.suit_img is not valid for template matching")
+        # print("qCard.suit_img is not valid for template matching")
         qCard.best_suit_match = "Unknown"
         qCard.suit_diff = None
 
@@ -440,16 +412,6 @@ def draw_results(image, qCard):
     # Display the card ID for debugging
     cv2.putText(image, f"ID: {qCard.id}", (x - 60, y + 60), font, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
     
-    ### FOR WHEN RANKS WORK ###
-    # Only draw if rank and suit are not "Unknown"
-    # if rank_name != "Unknown" and suit_name != "Unknown":
-    #     # Draw card name twice, so letters have black outline
-    #     cv2.putText(image, (rank_name + ' of'), (x - 60, y - 10), font, 1, (0, 0, 0), 3, cv2.LINE_AA)
-    #     cv2.putText(image, (rank_name + ' of'), (x - 60, y - 10), font, 1, (50, 200, 200), 2, cv2.LINE_AA)
-
-    #     cv2.putText(image, suit_name, (x - 60, y + 25), font, 1, (0, 0, 0), 3, cv2.LINE_AA)
-    #     cv2.putText(image, suit_name, (x - 60, y + 25), font, 1, (50, 200, 200), 2, cv2.LINE_AA)
-
 
     # Can draw difference value for troubleshooting purposes
     # (commented out during normal operation)
