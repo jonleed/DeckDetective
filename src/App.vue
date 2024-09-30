@@ -6,23 +6,9 @@ import Socket from './components/Socket.vue'
   <div class="app-container">
     <h1 class="title">Deck Detective</h1>
 
-    <div class="video-container">
-      <!-- Placeholder for the 720p video feed -->
-      <Socket />
-    </div>
+    <Socket />
 
-    <div class="values-container">
-      <div class="value-item">
-        <strong>True Count:</strong>
-        <!--<span>{{ trueCount }}</span>-->
-      </div>
-      <div class="value-item">
-        <strong>Optimal Move:</strong>
-        <!--<span>{{ optimalMove }}</span>-->
-      </div>
-    </div>
   </div>
-  <HelloWorld msg="Vite + Vue" />
 </template>
 
 <script lang="ts">
@@ -48,6 +34,7 @@ export default defineComponent({
 .title {
   /* font-size: 2rem; */
   font-size: 4vw;
+  color:white;
   margin-top: 0px;
   margin-bottom: 20px;
 }

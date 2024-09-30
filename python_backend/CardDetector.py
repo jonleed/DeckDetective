@@ -220,8 +220,8 @@ class CardDetector:
         suggestion = self.get_suggestion(player_hand, dealer_upcard, true_count)
 
         # Draw the suggestion on the image
-        if suggestion:
-            cv2.putText(image, f"Suggestion: {suggestion}", (10, 100), self.font, 1, (0, 255, 0), 2, cv2.LINE_AA)
+        # if suggestion:
+        #     cv2.putText(image, f"Suggestion: {suggestion}", (10, 100), self.font, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
         # Draw the green line to divide dealer and player areas
         cv2.line(image, (0, int(self.IM_HEIGHT / 2)), (self.IM_WIDTH, int(self.IM_HEIGHT / 2)), (0, 255, 0), 2)
@@ -231,7 +231,7 @@ class CardDetector:
         cv2.putText(image, "Player", (10, int(3 * self.IM_HEIGHT / 4)), self.font, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
         # Draw framerate in the corner of the image.
-        cv2.putText(image, "FPS: " + str(int(self.frame_rate_calc)), (10, 26), self.font, 0.7, (255, 0, 255), 2, cv2.LINE_AA)
+        # cv2.putText(image, "FPS: " + str(int(self.frame_rate_calc)), (10, 26), self.font, 0.7, (255, 0, 255), 2, cv2.LINE_AA)
 
         # Calculate framerate
         t2 = cv2.getTickCount()
